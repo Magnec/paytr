@@ -1,0 +1,14 @@
+name: PayTR Virtual Pos iFrame API
+type: module
+description: 'Open your web site to shopping with the advantages of PayTR. Take your payments securely.'
+package: Commerce (contrib)
+dependencies:
+  - commerce:commerce_payment
+  - telephone
+# version: '9.x-3.0'
+core_version_requirement: ^8.9 || ^9 || ^10 || ^11
+'interface translation project': paytr_payment
+'interface translation server pattern': modules/paytr/translations/%language.po
+
+
+

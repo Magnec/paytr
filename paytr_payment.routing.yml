@@ -1,0 +1,15 @@
+paytr_payment.callback:
+  path: '/paytr-payment/callback'
+  defaults:
+    _controller: '\Drupal\paytr_payment\Controller\CallbackController::callback'
+    _title: 'PayTR Callback'
+  requirements:
+    _method: 'POST'
+    _paytr_payment_callback_access_check: 'TRUE'
+paytr_payment.settings:
+  path: '/admin/commerce/config/paytr-settings'
+  defaults:
+    _form: '\Drupal\paytr_payment\Form\PaytrPaymentSettingsForm'
+    _title: 'PayTR Virtual Pos iFrame API Installment Settings'
+  requirements:
+    _permission: 'access content'

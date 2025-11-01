@@ -1,0 +1,7 @@
+paytr_payment.paytr_settings:
+  title: 'PayTR Installment Settings'
+  description: 'Get your dynamic salutation.'
+  parent: commerce_payment.configuration
+  route_name: paytr_payment.settings
+  menu_name: settings
+  weight: 0

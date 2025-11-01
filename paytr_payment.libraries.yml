@@ -1,0 +1,14 @@
+checkout:
+  version: VERSION
+  js:
+    js/paytr_payment.checkout.js: {}
+  dependencies:
+    - core/jquery
+    - core/jquery.once
+    - core/drupal
+    - core/drupalSettings
+
+iframe_resizer:
+  version: VERSION
+  js:
+    "https://www.paytr.com/js/iframeResizer.min.js": {}

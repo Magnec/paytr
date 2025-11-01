@@ -1,0 +1,79 @@
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: tr\n"
+"X-Generator: Poedit 2.4.2\n"
+
+msgid "PayTR Settings"
+msgstr "PayTR Ayarları"
+
+msgid "All Installment Options"
+msgstr "Tüm Taksit Seçenekleri"
+
+msgid "Single Payment"
+msgstr "Tek Çekim"
+
+msgid "Up to 2 Installments"
+msgstr "2 Taksite Kadar"
+
+msgid "Up to 3 Installments"
+msgstr "3 Taksite Kadar"
+
+msgid "Up to 4 Installments"
+msgstr "4 Taksite Kadar"
+
+msgid "Up to 5 Installments"
+msgstr "5 Taksite Kadar"
+
+msgid "Up to 6 Installments"
+msgstr "6 Taksite Kadar"
+
+msgid "Up to 7 Installments"
+msgstr "7 Taksite Kadar"
+
+msgid "Up to 8 Installments"
+msgstr "8 Taksite Kadar"
+
+msgid "Up to 9 Installments"
+msgstr "9 Taksite Kadar"
+
+msgid "Up to 10 Installments"
+msgstr "10 Taksite Kadar"
+
+msgid "Up to 11 Installments"
+msgstr "11 Taksite Kadar"
+
+msgid "Up to 12 Installments"
+msgstr "12 Taksite Kadar"
+
+msgid "Current Installment Setting"
+msgstr "Geçerli Taksit Ayarları"
+
+msgid "PayTR Virtual Pos iFrame API"
+msgstr "PayTR Sanal Pos iFrame API"
+
+msgid "Installment Settings"
+msgstr "Taksit Ayarları"
+
+msgid "PayTR Virtual Pos iFrame API Installment Settings"
+msgstr "PayTR Sanal Pos iFrame API Taksit Ayarları"
+
+msgid "PayTR Virtual Pos iFrame API"
+msgstr "PayTR Sanal Pos iFrame API"
+
+msgid "Credit Card / Bank Transfer"
+msgstr "Kredi Kartı / Banka Transferi"
+
+msgid "PayTR Installment Settings"
+msgstr "PayTR Taksit Ayarları"
+
+msgid "Callback URL"
+msgstr "Bildirim URL"
+
+msgid "Copy the address written in this field and paste it into the relevant field on the <b><a target="_blank"  href="https://www.paytr.com/magaza/ayarlar">Settings</a></b> page."
+msgstr "Bu alanda yer alan adresi kopyalayarak <b><a target="_blank"  href="https://www.paytr.com/magaza/ayarlar">Ayarlar</a></b> sayfasına giderek yapıştırın."

@@ -1,0 +1,18 @@
+paytr_payment.commerce_payment_gateway.plugin.paytr_payment_redirect_checkout:
+  type: commerce_payment_gateway_configuration
+  mapping:
+    merchant_id:
+      type: string
+      label: 'Merchant ID'
+    merchant_key:
+      type: string
+      label: 'Merchant Key'
+    merchant_salt:
+      type: string
+      label: 'Merchant Salt'
+    iframe_v2:
+      type: boolean
+      label: 'Enable iFrame V2'
+    iframe_v2_dark:
+      type: boolean
+      label: 'Enable Dark Theme for iFrame V2'

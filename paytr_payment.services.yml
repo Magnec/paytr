@@ -1,0 +1,11 @@
+services:
+  logger.channel.paytr_payment:
+    parent: logger.channel_base
+    arguments:
+      - 'paytr_payment'
+  paytr_payment.access_checker:
+    class: Drupal\paytr_payment\Access\PaytrPaymentCallbackAccessCheck
+    arguments:
+      - '@logger.channel.paytr_payment'
+    tags:
+      - { name: access_check, applies_to: _paytr_payment_callback_access_check }
