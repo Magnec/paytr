@@ -38,9 +38,6 @@ class CallbackController extends ControllerBase {
   {
     $logger = Drupal::logger('paytr_payment');
 
-    // Log callback start
-    $logger->info('PayTr callback: BAŞLADI - Request alındı.');
-
     // PayTr can send data as JSON or form-data, handle both
     $data = json_decode($request->getContent());
     if (!$data) {
@@ -49,13 +46,11 @@ class CallbackController extends ControllerBase {
       $status = $request->request->get('status');
       $hash = $request->request->get('hash');
       $total_amount = $request->request->get('total_amount');
-      $logger->info('PayTr callback: Form-data formatı algılandı.');
     } else {
       $merchant_oid = $data->merchant_oid ?? null;
       $status = $data->status ?? null;
       $hash = $data->hash ?? null;
       $total_amount = $data->total_amount ?? null;
-      $logger->info('PayTr callback: JSON formatı algılandı.');
     }
 
     // Validate required parameters
@@ -66,12 +61,6 @@ class CallbackController extends ControllerBase {
       ]);
       return new Response('Missing required parameters', 400);
     }
-
-    $logger->info('PayTr callback: Parametreler alındı. merchant_oid: @merchant_oid, status: @status, total_amount: @amount', [
-      '@merchant_oid' => $merchant_oid,
-      '@status' => $status,
-      '@amount' => $total_amount ?? 'null',
-    ]);
 
     $order_id = $this->resolveOrderId($merchant_oid);
     if (!$order_id) {
@@ -88,11 +77,6 @@ class CallbackController extends ControllerBase {
       ]);
       return new Response('Order not found', 404);
     }
-
-    $logger->info('PayTr callback: Sipariş bulundu. Order ID: @order_id, Order State: @state', [
-      '@order_id' => $order_id,
-      '@state' => $order->getState()->getId(),
-    ]);
 
     // Load or create payment (callback can arrive before onReturn due to race condition)
     $payment_storage = $this->entityTypeManager->getStorage('commerce_payment');
@@ -125,14 +109,6 @@ class CallbackController extends ControllerBase {
         'remote_state' => 'pending'
       ]);
       $payment->save();
-      $logger->info('PayTr callback: Payment oluşturuldu. Payment ID: @payment_id', [
-        '@payment_id' => $payment->id(),
-      ]);
-    } else {
-      $logger->info('PayTr callback: Payment bulundu. Payment ID: @payment_id, Payment State: @state', [
-        '@payment_id' => $payment->id(),
-        '@state' => $payment->getState()->getId(),
-      ]);
     }
 
     // Verify hash
@@ -145,10 +121,6 @@ class CallbackController extends ControllerBase {
         '@order_id' => $order_id,
         '@calc' => $calculated_hash,
         '@recv' => $hash,
-      ]);
-    } else {
-      $logger->info('PayTr callback: Hash doğrulaması BAŞARILI. Order ID: @order_id', [
-        '@order_id' => $order_id,
       ]);
     }
 
@@ -174,9 +146,6 @@ class CallbackController extends ControllerBase {
     $payment->set('state', $payment_state);
     $payment->set('remote_id', $merchant_oid);
     $payment->save();
-    $logger->info('PayTr callback: Payment güncellendi. State: @state', [
-      '@state' => $payment_state,
-    ]);
 
     // Place the order using Commerce workflow
     // This properly transitions the order through the correct states
@@ -185,23 +154,12 @@ class CallbackController extends ControllerBase {
       if ($transition) {
         $order->getState()->applyTransition($transition);
         $order->save();
-        $logger->info('PayTr callback: Order state güncellendi. Yeni State: @state', [
-          '@state' => $order->getState()->getId(),
-        ]);
-      } else {
-        $logger->warning('PayTr callback: Place transition bulunamadı.');
       }
-    } else {
-      $logger->info('PayTr callback: Order zaten completed durumunda.');
     }
 
-    // Unlock the order - it was locked during checkout
-    // This allows the order to be edited/viewed normally
+    // Unlock the order after successful payment
     if ($this->orderLock->isLocked($order)) {
       $this->orderLock->unlock($order);
-      $logger->info('PayTr callback: Sipariş kilidi kaldırıldı. Order ID: @order_id', [
-        '@order_id' => $order_id,
-      ]);
     }
 
     $logger->info('PayTr callback: Ödeme başarıyla kaydedildi. Transaction reference: @merchant_oid, Order ID: @order_id', [
