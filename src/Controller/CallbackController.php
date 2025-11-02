@@ -32,39 +32,101 @@ class CallbackController extends ControllerBase {
 
   public function callback(Request $request): Response
   {
-    $request = json_decode($request->getContent());
-    $payment = $this->entityTypeManager->getStorage('commerce_payment')->loadByRemoteId($this->resolveOrderId($request));
-    $state   =
-      $request->status === 'success' &&
-      $this->makeHash($request, $payment) === $request->hash ? 'completed' : 'canceled';
-    $order = Order::load($this->resolveOrderId($request));
-    if($state==='canceled')
-    {
+    $logger = Drupal::logger('paytr_payment');
+
+    // PayTr can send data as JSON or form-data, handle both
+    $data = json_decode($request->getContent());
+    if (!$data) {
+      // If JSON decode fails, get from POST parameters
+      $merchant_oid = $request->request->get('merchant_oid');
+      $status = $request->request->get('status');
+      $hash = $request->request->get('hash');
+      $total_amount = $request->request->get('total_amount');
+    } else {
+      $merchant_oid = $data->merchant_oid ?? null;
+      $status = $data->status ?? null;
+      $hash = $data->hash ?? null;
+      $total_amount = $data->total_amount ?? null;
+    }
+
+    // Validate required parameters
+    if (empty($merchant_oid) || empty($status) || empty($hash)) {
+      $logger->error('PayTr callback: Gerekli parametreler eksik. merchant_oid: @merchant_oid, status: @status', [
+        '@merchant_oid' => $merchant_oid ?? 'null',
+        '@status' => $status ?? 'null',
+      ]);
+      return new Response('Missing required parameters', 400);
+    }
+
+    $order_id = $this->resolveOrderId($merchant_oid);
+    if (!$order_id) {
+      $logger->error('PayTr callback: Order ID çözümlenemedi. merchant_oid: @merchant_oid', [
+        '@merchant_oid' => $merchant_oid,
+      ]);
+      return new Response('Invalid order ID', 400);
+    }
+
+    $order = Order::load($order_id);
+    if (!$order) {
+      $logger->error('PayTr callback: Sipariş bulunamadı. Order ID: @order_id', [
+        '@order_id' => $order_id,
+      ]);
+      return new Response('Order not found', 404);
+    }
+
+    $payment = $this->entityTypeManager->getStorage('commerce_payment')->loadByRemoteId($order_id);
+
+    // Verify hash and determine state
+    $is_hash_valid = $payment && $this->makeHash($merchant_oid, $status, $total_amount, $payment) === $hash;
+    $state = ($status === 'success' && $is_hash_valid) ? 'completed' : 'canceled';
+
+    // Handle canceled payment
+    if ($state === 'canceled') {
+      $logger->warning('PayTr callback: Ödeme iptal edildi veya hash doğrulaması başarısız. Order ID: @order_id, Status: @status', [
+        '@order_id' => $order_id,
+        '@status' => $status,
+      ]);
       $order->set('state', $state);
       $order->save();
       return new Response('OK');
     }
-    $payment->set('state', $state);
-    $payment->set('remote_id', $request->merchant_oid);
-    $payment->save();
+
+    // Update payment if it exists
+    if ($payment) {
+      $payment->set('state', $state);
+      $payment->set('remote_id', $merchant_oid);
+      $payment->save();
+    }
+
+    // Update order
     $order->set('state', $state);
     $order->save();
-    $logger = Drupal::logger('paytr_payment');
-    $logger->info('Saving Payment information. Transaction reference: '.$request->merchant_oid);
+
+    $logger->info('PayTr callback: Ödeme başarıyla kaydedildi. Transaction reference: @merchant_oid, Order ID: @order_id', [
+      '@merchant_oid' => $merchant_oid,
+      '@order_id' => $order_id,
+    ]);
+
     return new Response('OK');
   }
 
-  private function resolveOrderId($request): int
+  private function resolveOrderId(?string $merchant_oid): ?int
   {
-    $merchant_oid = $request->merchant_oid;
-    $merchant_oid = explode('DR', $merchant_oid);
-    $merchant_oid = str_replace('SP', '', $merchant_oid[0]);
+    // Check if merchant_oid is null or empty
+    if (empty($merchant_oid)) {
+      return null;
+    }
+
+    // Split by 'DR' if it exists
+    $parts = explode('DR', $merchant_oid);
+    $merchant_oid = str_replace('SP', '', $parts[0]);
+
     return (int) $merchant_oid;
   }
 
-  private function makeHash($request, $payment): string
+  private function makeHash(string $merchant_oid, string $status, string $total_amount, $payment): string
   {
-    $paytrHelper  = new PaytrHelper($payment);
-    return base64_encode( hash_hmac('sha256', $request->merchant_oid.$paytrHelper->getMerchantSalt().$request->status.$request->total_amount, $paytrHelper->getMerchantKey(), true) );
+    $paytrHelper = new PaytrHelper($payment);
+    return base64_encode(hash_hmac('sha256', $merchant_oid . $paytrHelper->getMerchantSalt() . $status . $total_amount, $paytrHelper->getMerchantKey(), true));
   }
 }
