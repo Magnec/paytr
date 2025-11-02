@@ -18,19 +18,41 @@ class PaytrPaymentCallbackAccessCheck implements AccessInterface {
 
   public function access(Request $request): AccessResult
   {
-    if(Order::load($this->resolveOrderId(json_decode($request->getContent()))) !== null)
-    {
+    // PayTr can send data as JSON or form-data, so we need to handle both
+    $data = json_decode($request->getContent());
+    if (!$data) {
+      // If JSON decode fails, try to get from POST parameters
+      $merchant_oid = $request->request->get('merchant_oid');
+    } else {
+      $merchant_oid = $data->merchant_oid ?? null;
+    }
+
+    // Check if merchant_oid exists
+    if (empty($merchant_oid)) {
+      $this->logger->error("PayTr callback: merchant_oid parametresi bulunamadı.");
+      return AccessResult::forbidden();
+    }
+
+    $order_id = $this->resolveOrderId($merchant_oid);
+    if ($order_id && Order::load($order_id) !== null) {
       return AccessResult::allowed();
     }
-    $this->logger->error("Böyle bir sipariş bulunamadı.");
+
+    $this->logger->error("PayTr callback: Böyle bir sipariş bulunamadı. Order ID: @order_id", ['@order_id' => $order_id]);
     return AccessResult::forbidden();
   }
 
-  private function resolveOrderId($request): int
+  private function resolveOrderId(?string $merchant_oid): ?int
   {
-    $merchant_oid = $request->merchant_oid;
-    $merchant_oid = explode('DR', $merchant_oid);
-    $merchant_oid = str_replace('SP', '', $merchant_oid[0]);
+    // Check if merchant_oid is null or empty
+    if (empty($merchant_oid)) {
+      return null;
+    }
+
+    // Split by 'DR' if it exists
+    $parts = explode('DR', $merchant_oid);
+    $merchant_oid = str_replace('SP', '', $parts[0]);
+
     return (int) $merchant_oid;
   }
 }
