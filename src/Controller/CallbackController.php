@@ -74,13 +74,35 @@ class CallbackController extends ControllerBase {
       return new Response('Order not found', 404);
     }
 
-    $payment = $this->entityTypeManager->getStorage('commerce_payment')->loadByRemoteId($order_id);
+    // Load payment from order, not by remote_id (which doesn't exist yet)
+    $payments = $this->entityTypeManager->getStorage('commerce_payment')->loadByProperties([
+      'order_id' => $order_id,
+    ]);
+    $payment = !empty($payments) ? reset($payments) : null;
 
-    // Verify hash and determine state
-    $is_hash_valid = $payment && $this->makeHash($merchant_oid, $status, $total_amount, $payment) === $hash;
+    if (!$payment) {
+      $logger->error('PayTr callback: Ödeme bulunamadı. Order ID: @order_id', [
+        '@order_id' => $order_id,
+      ]);
+      return new Response('Payment not found', 404);
+    }
+
+    // Verify hash
+    $calculated_hash = $this->makeHash($merchant_oid, $status, $total_amount, $payment);
+    $is_hash_valid = $calculated_hash === $hash;
+
+    // Debug logging for hash validation
+    if (!$is_hash_valid) {
+      $logger->warning('PayTr callback: Hash doğrulaması başarısız. Order ID: @order_id, Calculated: @calc, Received: @recv', [
+        '@order_id' => $order_id,
+        '@calc' => $calculated_hash,
+        '@recv' => $hash,
+      ]);
+    }
+
     $state = ($status === 'success' && $is_hash_valid) ? 'completed' : 'canceled';
 
-    // Handle canceled payment
+    // Handle canceled or failed validation
     if ($state === 'canceled') {
       $logger->warning('PayTr callback: Ödeme iptal edildi veya hash doğrulaması başarısız. Order ID: @order_id, Status: @status', [
         '@order_id' => $order_id,
@@ -91,12 +113,10 @@ class CallbackController extends ControllerBase {
       return new Response('OK');
     }
 
-    // Update payment if it exists
-    if ($payment) {
-      $payment->set('state', $state);
-      $payment->set('remote_id', $merchant_oid);
-      $payment->save();
-    }
+    // Update payment with completed state
+    $payment->set('state', $state);
+    $payment->set('remote_id', $merchant_oid);
+    $payment->save();
 
     // Update order
     $order->set('state', $state);

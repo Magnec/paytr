@@ -103,23 +103,33 @@ class RedirectCheckout extends OffsitePaymentGatewayBase
   }
 
   /**
-   * @throws EntityStorageException
-   * @throws InvalidPluginDefinitionException
-   * @throws PluginNotFoundException
+   * {@inheritdoc}
    */
   public function onReturn(OrderInterface $order, Request $request): void
   {
+    // PayTr handles payment processing via callback, not return URL
+    // The callback has already created/updated the payment
+    // We just need to verify the payment exists and has been processed
 
     $payment_storage = $this->entityTypeManager->getStorage('commerce_payment');
-    $order = Order::load($order->id());
-    $payment = $payment_storage->create([
-      'state' => 'authorization',
-      'amount' => $order->getTotalPrice(),
-      'payment_gateway' => $this->parentEntity->id(),
+    $payments = $payment_storage->loadByProperties([
       'order_id' => $order->id(),
-      'remote_id' => $order->id(),
-      'remote_state' => 'pending'
     ]);
-    $payment->save();
+
+    // If no payment exists, create one in pending state
+    // The callback will update it when it arrives
+    if (empty($payments)) {
+      $payment = $payment_storage->create([
+        'state' => 'authorization',
+        'amount' => $order->getTotalPrice(),
+        'payment_gateway' => $this->parentEntity->id(),
+        'order_id' => $order->id(),
+        'remote_id' => $order->id(),
+        'remote_state' => 'pending'
+      ]);
+      $payment->save();
+    }
+    // If payment exists, don't create a duplicate
+    // The callback has already updated it
   }
 }
