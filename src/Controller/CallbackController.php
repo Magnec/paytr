@@ -4,6 +4,7 @@ namespace Drupal\paytr_payment\Controller;
 
 use Drupal;
 use Drupal\commerce_order\Entity\Order;
+use Drupal\commerce_order\OrderLockInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\paytr_payment\Helpers\PaytrHelper;
@@ -18,15 +19,18 @@ use Symfony\Component\HttpFoundation\Request;
 class CallbackController extends ControllerBase {
 
   protected $entityTypeManager;
+  protected $orderLock;
 
-  public function __construct(EntityTypeManagerInterface $entityTypeManager) {
+  public function __construct(EntityTypeManagerInterface $entityTypeManager, OrderLockInterface $orderLock) {
     $this->entityTypeManager = $entityTypeManager;
+    $this->orderLock = $orderLock;
   }
 
   public static function create(ContainerInterface $container): CallbackController
   {
     return new static(
-      $container->get('entity_type.manager')
+      $container->get('entity_type.manager'),
+      $container->get('commerce_order.order_lock')
     );
   }
 
@@ -151,6 +155,15 @@ class CallbackController extends ControllerBase {
         $order->getState()->applyTransition($transition);
         $order->save();
       }
+    }
+
+    // Unlock the order - it was locked during checkout
+    // This allows the order to be edited/viewed normally
+    if ($this->orderLock->isLocked($order)) {
+      $this->orderLock->unlock($order);
+      $logger->info('PayTr callback: Sipariş kilidi kaldırıldı. Order ID: @order_id', [
+        '@order_id' => $order_id,
+      ]);
     }
 
     $logger->info('PayTr callback: Ödeme başarıyla kaydedildi. Transaction reference: @merchant_oid, Order ID: @order_id', [
