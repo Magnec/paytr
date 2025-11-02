@@ -74,17 +74,37 @@ class CallbackController extends ControllerBase {
       return new Response('Order not found', 404);
     }
 
-    // Load payment from order, not by remote_id (which doesn't exist yet)
-    $payments = $this->entityTypeManager->getStorage('commerce_payment')->loadByProperties([
+    // Load or create payment (callback can arrive before onReturn due to race condition)
+    $payment_storage = $this->entityTypeManager->getStorage('commerce_payment');
+    $payments = $payment_storage->loadByProperties([
       'order_id' => $order_id,
     ]);
     $payment = !empty($payments) ? reset($payments) : null;
 
+    // If payment doesn't exist, create it (callback arrived before onReturn)
     if (!$payment) {
-      $logger->error('PayTr callback: Ödeme bulunamadı. Order ID: @order_id', [
+      $logger->info('PayTr callback: Ödeme bulunamadı, oluşturuluyor. Order ID: @order_id', [
         '@order_id' => $order_id,
       ]);
-      return new Response('Payment not found', 404);
+
+      // Get payment gateway from order
+      $payment_gateway_id = $order->get('payment_gateway')->target_id;
+      if (!$payment_gateway_id) {
+        $logger->error('PayTr callback: Payment gateway bulunamadı. Order ID: @order_id', [
+          '@order_id' => $order_id,
+        ]);
+        return new Response('Payment gateway not found', 404);
+      }
+
+      $payment = $payment_storage->create([
+        'state' => 'authorization',
+        'amount' => $order->getTotalPrice(),
+        'payment_gateway' => $payment_gateway_id,
+        'order_id' => $order->id(),
+        'remote_id' => $order_id,
+        'remote_state' => 'pending'
+      ]);
+      $payment->save();
     }
 
     // Verify hash

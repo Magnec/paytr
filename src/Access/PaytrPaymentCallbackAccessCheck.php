@@ -34,11 +34,21 @@ class PaytrPaymentCallbackAccessCheck implements AccessInterface {
     }
 
     $order_id = $this->resolveOrderId($merchant_oid);
+
+    // Log the merchant_oid and parsed order_id for debugging
+    $this->logger->info("PayTr callback AccessCheck: merchant_oid: @merchant_oid, parsed order_id: @order_id", [
+      '@merchant_oid' => $merchant_oid,
+      '@order_id' => $order_id ?? 'null',
+    ]);
+
     if ($order_id && Order::load($order_id) !== null) {
       return AccessResult::allowed();
     }
 
-    $this->logger->error("PayTr callback: Böyle bir sipariş bulunamadı. Order ID: @order_id", ['@order_id' => $order_id]);
+    $this->logger->error("PayTr callback: Böyle bir sipariş bulunamadı. Order ID: @order_id, merchant_oid: @merchant_oid", [
+      '@order_id' => $order_id ?? 'null',
+      '@merchant_oid' => $merchant_oid,
+    ]);
     return AccessResult::forbidden();
   }
 
