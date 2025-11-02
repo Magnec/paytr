@@ -100,27 +100,38 @@ class CallbackController extends ControllerBase {
       ]);
     }
 
-    $state = ($status === 'success' && $is_hash_valid) ? 'completed' : 'canceled';
+    // Determine payment state based on PayTr status and hash validation
+    $payment_state = ($status === 'success' && $is_hash_valid) ? 'completed' : 'authorization';
 
-    // Handle canceled or failed validation
-    if ($state === 'canceled') {
-      $logger->warning('PayTr callback: Ödeme iptal edildi veya hash doğrulaması başarısız. Order ID: @order_id, Status: @status', [
+    // Handle failed payment or hash validation
+    if ($payment_state !== 'completed') {
+      $logger->warning('PayTr callback: Ödeme başarısız veya hash doğrulaması başarısız. Order ID: @order_id, Status: @status, Hash Valid: @valid', [
         '@order_id' => $order_id,
         '@status' => $status,
+        '@valid' => $is_hash_valid ? 'Yes' : 'No',
       ]);
-      $order->set('state', $state);
-      $order->save();
+      // Update payment to authorization state (pending)
+      $payment->set('state', $payment_state);
+      $payment->set('remote_id', $merchant_oid);
+      $payment->save();
+      // Do NOT change order state - let Commerce Checkout workflow handle it
       return new Response('OK');
     }
 
     // Update payment with completed state
-    $payment->set('state', $state);
+    $payment->set('state', $payment_state);
     $payment->set('remote_id', $merchant_oid);
     $payment->save();
 
-    // Update order
-    $order->set('state', $state);
-    $order->save();
+    // Place the order using Commerce workflow
+    // This properly transitions the order through the correct states
+    if ($order->getState()->getId() !== 'completed') {
+      $transition = $order->getState()->getWorkflow()->getTransition('place');
+      if ($transition) {
+        $order->getState()->applyTransition($transition);
+        $order->save();
+      }
+    }
 
     $logger->info('PayTr callback: Ödeme başarıyla kaydedildi. Transaction reference: @merchant_oid, Order ID: @order_id', [
       '@merchant_oid' => $merchant_oid,
