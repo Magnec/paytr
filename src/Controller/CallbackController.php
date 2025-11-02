@@ -157,13 +157,9 @@ class CallbackController extends ControllerBase {
       }
     }
 
-    // Unlock the order - it was locked during checkout
-    // This allows the order to be edited/viewed normally
+    // Unlock the order after successful payment
     if ($this->orderLock->isLocked($order)) {
       $this->orderLock->unlock($order);
-      $logger->info('PayTr callback: Sipariş kilidi kaldırıldı. Order ID: @order_id', [
-        '@order_id' => $order_id,
-      ]);
     }
 
     $logger->info('PayTr callback: Ödeme başarıyla kaydedildi. Transaction reference: @merchant_oid, Order ID: @order_id', [
